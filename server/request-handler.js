@@ -11,6 +11,35 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
+// These headers will allow Cross-Origin Resource Sharing (CORS).
+// This code allows this server to talk to websites that
+// are on different domains, for instance, your chat client.
+
+// Your chat client is running from a url like file://your/chat/client/index.html,
+// which is considered a different domain.
+//
+// Another way to get around this restriction is to serve you chat
+// client from this domain by setting up static file serving.
+
+// var cors = require('cors');
+
+// app.use(cors()); // Use this after the variable declaration
+
+var time = new Date();
+
+var results = [];
+
+// var results = [{username: 'Jono', text: 'Do my bidding!', roomname: 'lobby', createdAt: time}];
+var dataObj = {};
+dataObj['results'] = results;
+
+var defaultCorsHeaders = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'access-control-allow-headers': 'content-type, accept',
+  'access-control-max-age': 10 // Seconds.
+};
+
 
 var requestHandler = function(request, response) {
   // Request and Response come from node's http module.
@@ -29,6 +58,7 @@ var requestHandler = function(request, response) {
   // console.logs in your code.
   console.log('Serving request type ' + request.method + ' for url ' + request.url);
 
+
   // The outgoing status.
   var statusCode = 200;
 
@@ -39,11 +69,10 @@ var requestHandler = function(request, response) {
   //
   // You will need to change this if you are sending something
   // other than plain text, like JSON or HTML.
-  headers['Content-Type'] = 'text/plain';
+  headers['Content-Type'] = 'application/json';
 
   // .writeHead() writes to the request line and headers of the response,
   // which includes the status and all headers.
-  response.writeHead(statusCode, headers);
 
   // Make sure to always call response.end() - Node may not send
   // anything back to the client until you do. The string you pass to
@@ -52,22 +81,55 @@ var requestHandler = function(request, response) {
   //
   // Calling .end "flushes" the response's internal buffer, forcing
   // node to actually send all the data over to the client.
-  response.end('Hello, World!');
+
+  if (request.method === 'GET' && request.url.includes('/classes/messages')) {
+    headers['Content-Type'] = 'application/json';
+    response.writeHead(statusCode, headers);
+
+    // console.log('It worked');
+
+    //return JSON.stringify(responseObj);
+    console.log(dataObj);
+    response.end(JSON.stringify(dataObj));
+  } else if (request.method === 'POST' && request.url.includes('/classes/messages')) {
+
+    var data = '';
+
+    request.on('data', function(chunk) {
+      data += chunk.toString();
+    });
+
+    request.on('end', function() {
+      var message = JSON.parse(data);
+
+      message.objectId = results.length;
+      results.push(message);
+
+      headers['Content-Type'] = 'application/json';
+      response.writeHead(201, headers);
+      response.end(JSON.stringify(message));
+    });
+  } else if (request.method === 'OPTIONS' && request.url.includes('/classes/messages')) {
+    headers['Content-Type'] = 'text/plain';
+
+    // headers = {
+    //   Allow: 'HEAD,GET,PUT,DELETE,OPTIONS'
+    // };
+
+    response.writeHead(statusCode, headers);
+
+    response.end();
+  } else {
+
+    response.writeHead(404, {'content-type': 'text/plain'});
+    response.end('Not found.');
+
+  }
 };
 
-// These headers will allow Cross-Origin Resource Sharing (CORS).
-// This code allows this server to talk to websites that
-// are on different domains, for instance, your chat client.
-//
-// Your chat client is running from a url like file://your/chat/client/index.html,
-// which is considered a different domain.
-//
-// Another way to get around this restriction is to serve you chat
-// client from this domain by setting up static file serving.
-var defaultCorsHeaders = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'access-control-allow-headers': 'content-type, accept',
-  'access-control-max-age': 10 // Seconds.
-};
 
+// request.on('data', (data) => {
+//   console.log(data);
+// });
+
+module.exports.requestHandler = requestHandler;
